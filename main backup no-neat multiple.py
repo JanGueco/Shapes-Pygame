@@ -1,4 +1,4 @@
-import pygame, time, sys, random, neat, os
+import pygame, time, sys, random, math, os
 from pygame.locals import *
 
 
@@ -37,7 +37,7 @@ score_sound = pygame.mixer.Sound("Assets/coin.wav")
 display = pygame.display.set_mode((window_width, window_height))
 pygame.display.set_caption('Shapes')
 
-font = pygame.font.Font('freesansbold.ttf', 32)
+font = pygame.font.Font('freesansbold.ttf', 24)
 text = font.render('Shape game batak', True, GREEN, BLUE)
 textRect = text.get_rect()
 textRect.center = (window_width * .70 , window_height * .10)
@@ -46,24 +46,25 @@ textRect.center = (window_width * .70 , window_height * .10)
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, x = window_width*0.10, y = 385 ):
         super().__init__() 
-        self.surf = pygame.Surface((30, 50))
+        self.x = x
+        self.y = y
+        self.surf = pygame.Surface((30, 60))
         self.surf.fill(BLUE)
         self.rect = self.surf.get_rect()
-   
-        self.pos = vec((window_width*0.10, 385))
+        self.pos = vec((x, y))
         self.vel = vec(0,0)
         self.acc = vec(0,0)
         self.IsJump = False
         self.IsDuck = False
         self.score = 0
+        self.nearest_distance = 0
  
     def move(self):
-
+        global player_list
 
         self.acc = vec(0,1)
-    
         pressed_keys = pygame.key.get_pressed()
         if pressed_keys[K_UP]:
             self.jump()
@@ -90,16 +91,17 @@ class Player(pygame.sprite.Sprite):
         self.rect.midbottom = self.pos
 
     def update(self):
-        hits = pygame.sprite.spritecollide(P1, platforms, False)
+        hits = pygame.sprite.spritecollide(self, platforms, False)
         if hits:
             self.pos.y = hits[0].rect.top + 1
             self.vel.y = 0
             self.IsJump = False
 
-        hits2 = pygame.sprite.spritecollide(P1, enemies, False)
+        hits2 = pygame.sprite.spritecollide(self, enemies, False)
         if hits2:
-            self.score -= 1
-            game_over()
+            player_list.remove(self)
+            self.die()
+          
             
     def jump(self):
         if not self.IsJump:
@@ -115,7 +117,7 @@ class Player(pygame.sprite.Sprite):
             self.IsDuck = True
 
     def reset(self):
-        self.pos = vec((window_width*0.10, 385))
+        self.pos = vec((self.x, self.y))
         self.vel = vec(0,0)
         self.acc = vec(0,0)
         self.IsJump = False
@@ -124,6 +126,9 @@ class Player(pygame.sprite.Sprite):
             self.rect = self.surf.get_rect()
             self.IsDuck = False
         self.score = 0
+    
+    def die(self):
+        self.kill()
 
 
 class Cactus(pygame.sprite.Sprite):
@@ -173,9 +178,11 @@ class platform(pygame.sprite.Sprite):
 
 
 
-
+player_list = list()
 PT1 = platform()
-P1 = Player()
+original_p_list = [Player(), Player()]
+player_list = original_p_list.copy()
+
 
 platforms = pygame.sprite.Group()
 platforms.add(PT1)
@@ -184,12 +191,20 @@ enemies = pygame.sprite.Group()
 
 all_sprites = pygame.sprite.Group()
 all_sprites.add(PT1)
-all_sprites.add(P1)
+for p in player_list:
+    all_sprites.add(p)
 
 
+
+def distance(pos_a, pos_b):
+    x1 = pos_a[0]
+    y1 = pos_a[1]
+    x2 = pos_b[0]
+    y2 = pos_b[1]
+    return math.sqrt((x1-x2)**2 + (y1-y2)**2)
 
 def game_over():
-    global enemy_list, nearest_distance, nearest
+    global enemy_list, nearest_distance, nearest, original_p_list, player_list, highest_score
 
     for entities in all_sprites:
         if entities in enemies:
@@ -199,26 +214,36 @@ def game_over():
     enemy_list = list()
     nearest = 0
     nearest_distance = 0
+    highest_score = 0
 
     display.fill((BLACK))
-    gameover_font = pygame.font.Font('freesansbold.ttf', 16)
-    gameover_text = gameover_font.render("Game over, press r to respawn or q to quit", True, WHITE)
-    gameover_rect = gameover_text.get_rect()
-    gameover_rect.center = (window_width/2, window_height/2)
-    display.blit(gameover_text, gameover_rect)
+    # gameover_font = pygame.font.Font('freesansbold.ttf', 16)
+    # gameover_text = gameover_font.render("Game over, press r to respawn or q to quit", True, WHITE)
+    # gameover_rect = gameover_text.get_rect()
+    # gameover_rect.center = (window_width/2, window_height/2)
+    # display.blit(gameover_text, gameover_rect)
     pygame.display.update()
 
-    event = pygame.event.wait()
+    player_list = original_p_list.copy()
+    print(type(player_list[0]))
+
+    for p in player_list:
+        p.reset()
+        all_sprites.add(p)
     
-    if event.type == QUIT:
-        pygame.quit
-        sys.exit()
-    elif event.type == KEYDOWN:
-        if event.key == K_q:
-            pygame.quit
-            sys.exit()
-        elif event.key == K_r:
-            P1.reset()
+    time.sleep(2)
+    # event = pygame.event.wait()
+    
+    # if event.type == QUIT:
+    #     pygame.quit
+    #     sys.exit()
+    # elif event.type == KEYDOWN:
+    #     if event.key == K_q:
+    #         pygame.quit
+    #         sys.exit()
+    #     elif event.key == K_r:
+    #         pass
+    #         #player.reset()
         
         
 
@@ -235,16 +260,11 @@ def game_over():
 enemy_list = list()
 nearest = 0
 nearest_distance = 0
+highest_score = 0
 
-
-def eval_genomes(genomes, config):
+def main():
     enemy_time = time.time() + 5
-    global enemy_list, nearest, nearest_distance, ge, nets
-
-
-
-    ge = []
-    nets = []
+    global enemy_list, nearest, nearest_distance, player_list, highest_score
 
     while True:
         global game_speed
@@ -259,29 +279,28 @@ def eval_genomes(genomes, config):
                 pygame.quit()
                 sys.exit()
 
-
-        P1.move()
-        P1.update()
+        if len(player_list) == 0:
+            game_over()
+        
         
         for e in enemy_list:
             e.move()
 
-            if P1.rect.x > e.rect.x and not e.is_scored:
-                score_sound.play()
-                P1.score += 1
-                e.is_scored = True
-
-
-
             if e.rect.x < -60:
-                enemy_list.remove(e)
+                    enemy_list.remove(e)
 
-            if nearest_distance <= 0:
-                nearest = e
-                nearest_distance = e.rect.x - P1.rect.x
-            
-            else:
-                nearest_distance = nearest.rect.x - P1.rect.x
+            for p in player_list:
+                if p.rect.x > e.rect.x and not e.is_scored:
+                    #score_sound.play()
+                    p.score += 1
+                    e.is_scored = True
+
+        
+        for p in player_list:
+            for e in enemy_list:
+                if distance((p.rect.x, p.rect.y), (e.rect.midtop))>0:
+                    p.nearest_distance=distance((p.rect.x, p.rect.y), (e.rect.midtop))
+                    break
 
 
         if time.time() > enemy_time:
@@ -301,12 +320,19 @@ def eval_genomes(genomes, config):
             enemy_time = time.time() + random.randint(1,3)
             game_speed += 0.5
         
+        for p in player_list:
+            p.move()
+            p.update()
+            if p.score > highest_score:
+                highest_score = p.score
         
 
         for entity in all_sprites:
             display.blit(entity.surf, entity.rect)
         
-        text = font.render('Score: ' + str(P1.score)+" Nearest: " + str(nearest_distance), True, GREEN, BLUE)
+
+        # text = font.render('Score: ' + str(highest_score) + " Nearest Distance: " + str(player_list[0].nearest_distance), True, GREEN, BLUE)
+        text = font.render("Player count: " + str(len(player_list)), True, GREEN, BLUE)
         display.blit(text, textRect)
 
         
@@ -321,21 +347,3 @@ main()
 
 
 #Neat Implementation
-def run(config_path):
-    global pop
-    config = neat.config.Config(
-        neat.DefaultGenome,
-        neat.DefaultReproduction,
-        neat.DefaultSpeciesSet,
-        neat.DefaultStagnation,
-        config_path
-    )
-
-    pop = neat.Population(config)
-    pop.run(eval_genomes, 100)
-
-
-if __name__ == '__main__':
-    local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, 'config.txt')
-    run(config_path)

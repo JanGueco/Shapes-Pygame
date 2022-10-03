@@ -1,1 +1,2 @@
 1.) Movement, Collision detection, Linear Cactus movement done.
+2.) Game over screen, reset function, enemy spawning, scoring system + sound

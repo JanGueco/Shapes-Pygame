@@ -1,4 +1,4 @@
-import pygame, time, sys, random, neat, os
+import pygame, time, sys, random
 from pygame.locals import *
 
 
@@ -73,10 +73,10 @@ class Player(pygame.sprite.Sprite):
         #     self.acc.x = ACC
         if pressed_keys[K_DOWN]:
             self.duck()
-        if self.IsDuck and not pressed_keys[K_DOWN]:
-            self.IsDuck = False
-            self.surf = pygame.transform.smoothscale(self.surf,(30,60))
-            self.rect = self.surf.get_rect()
+        # if self.IsDuck and not pressed_keys[K_DOWN]:
+        #     self.IsDuck = False
+        #     self.surf = pygame.transform.smoothscale(self.surf,(30,60))
+        #     self.rect = self.surf.get_rect()
              
         self.acc.x += self.vel.x * FRIC
         self.vel += self.acc
@@ -106,13 +106,20 @@ class Player(pygame.sprite.Sprite):
             self.vel.y = -15
             self.IsJump=True
 
-    def duck(self):
-        if not self.IsDuck:
+    def duck(self, duck):
+        
+        if duck and self.IsDuck:
+            pass
+
+        elif not self.IsDuck:
             self.surf = pygame.transform.smoothscale(self.surf,(30,30))
             self.rect = self.surf.get_rect()
-            if self.IsJump:
-                self.vel.y = 20
             self.IsDuck = True
+            
+        else:
+            self.surf = pygame.transform.smoothscale(self.surf,(30,60))
+            self.rect = self.surf.get_rect()
+            self.IsDuck = False
 
     def reset(self):
         self.pos = vec((window_width*0.10, 385))
@@ -177,6 +184,7 @@ class platform(pygame.sprite.Sprite):
 PT1 = platform()
 P1 = Player()
 
+
 platforms = pygame.sprite.Group()
 platforms.add(PT1)
 
@@ -233,18 +241,14 @@ def game_over():
 
 # forever loop
 enemy_list = list()
+player_list = list()
 nearest = 0
 nearest_distance = 0
 
 
-def eval_genomes(genomes, config):
+def main():
     enemy_time = time.time() + 5
-    global enemy_list, nearest, nearest_distance, ge, nets
-
-
-
-    ge = []
-    nets = []
+    global enemy_list, nearest, nearest_distance
 
     while True:
         global game_speed
@@ -321,21 +325,3 @@ main()
 
 
 #Neat Implementation
-def run(config_path):
-    global pop
-    config = neat.config.Config(
-        neat.DefaultGenome,
-        neat.DefaultReproduction,
-        neat.DefaultSpeciesSet,
-        neat.DefaultStagnation,
-        config_path
-    )
-
-    pop = neat.Population(config)
-    pop.run(eval_genomes, 100)
-
-
-if __name__ == '__main__':
-    local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, 'config.txt')
-    run(config_path)
