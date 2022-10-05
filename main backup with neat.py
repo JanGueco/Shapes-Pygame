@@ -12,6 +12,7 @@ frames_per_second = 60
 window_height = 600
 window_width = 800
 game_speed = 5
+number_of_generations = 200
 
 #Physics
 ACC = 0.7
@@ -55,7 +56,7 @@ textRect4.center = (window_width * .05 , window_height * .10)
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x = window_width*0.10, y = 385 ):
+    def __init__(self, x = window_width*0.10, y = 540):
         super().__init__() 
         self.x = x
         self.y = y
@@ -70,12 +71,18 @@ class Player(pygame.sprite.Sprite):
         self.score = 0
         self.nearest_distance = 0
         self.nearest_type = 0
-        self.nearest_height = 0
+        self.nearest_x_distance = 0
  
     def move(self):
         global player_list
 
-        self.acc = vec(0,1)
+        self.acc = vec(0,3)
+
+        if self.IsJump and self.pos.y <= window_height * 0.80:
+            self.acc = vec(0,3)
+            self.vel.y = 0
+
+
         pressed_keys = pygame.key.get_pressed()
         if pressed_keys[K_UP]:
             self.jump()
@@ -106,7 +113,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.midbottom = self.pos
 
     def update(self):
-        global ge
+        global ge, player_list
         hits = pygame.sprite.spritecollide(self, platforms, False)
         if hits:
             self.pos.y = hits[0].rect.top + 1
@@ -116,15 +123,22 @@ class Player(pygame.sprite.Sprite):
         hits2 = pygame.sprite.spritecollide(self, enemies, False)
         if hits2:
             index = player_list.index(self)
-            ge[index].fitness -=1
+            ge[index].fitness -=2
             remove(index)
             self.die()
           
         
     def jump(self):
+        # This current jump mechanism is too slow for fast game modes
         if not self.IsJump:
-            self.vel.y = -15
+            self.vel.y = -30
             self.IsJump=True
+
+        # if not self.IsJump:
+        #     self.acc.y = -15
+        #     self.vel.y += self.acc.y
+        #     self.IsJump=True
+
 
     def duck(self,duck):
         # if not self.IsDuck:
@@ -288,11 +302,9 @@ def eval_genomes(genomes, config):
     enemies.empty()
     enemy_list = list()
 
-    game_speed = 5 if game_speed - 2 < 5 else game_speed - 2
+    game_speed = 10 if game_speed - 2 < 10 else game_speed - 1
 
-    #set limit on speed
-    if game_speed > 15:
-        game_speed = 15
+    
 
 
     for genome_id, genome in genomes:
@@ -317,9 +329,15 @@ def eval_genomes(genomes, config):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            
+            elif event.type == KEYDOWN:
+                if event.key == K_RIGHT:
+                    game_speed += 0.5
 
         if len(player_list) == 0:
             break
+        
+        
         
         
         for e in enemy_list:
@@ -329,24 +347,29 @@ def eval_genomes(genomes, config):
                     enemy_list.remove(e)
 
             for i,p in enumerate(player_list):
-                if p.rect.x > e.rect.x and not e.is_scored:
+                if p.rect.midleft[0] > e.rect.midright[0] and not e.is_scored:
                     #score_sound.play()
                     p.score += 1
-                    ge[i].fitness += 1
+                    if e.enemy_type == 1:
+                        ge[i].fitness += 2
+                    else:
+                        ge[i].fitness += 1
                     e.is_scored = True
+                
+                p.update()
 
         
-        for p in player_list:
-            for e in enemy_list:
-                if distance((p.rect.x, p.rect.y), (e.rect.midtop))>0:
-                    p.nearest_distance=distance((p.rect.x, p.rect.y), (e.rect.midtop))
-                    p.nearest_type = e.enemy_type
-                    p.nearest_height = e.rect.midbottom[1]
-                    break
+        # for p in player_list:
+        #     for e in enemy_list:
+        #         if distance((p.rect.x, p.rect.y), (e.rect.midtop))>0:
+        #             p.nearest_distance=distance((p.rect.x, p.rect.y), (e.rect.midtop))
+        #             p.nearest_type = e.enemy_type
+        #             p.nearest_height = e.rect.midbottom[1]
+        #             break
 
 
-        if time.time() > enemy_time:
-            
+        #if time.time() > enemy_time:
+        if len(enemy_list) == 0:    
             enemy_type = random.randint(1,100)
             if enemy_type >= 50:
                 a = Cactus(window_width-30)
@@ -359,9 +382,11 @@ def eval_genomes(genomes, config):
                 enemies.add(a)
                 enemy_list.append(a)
 
-            enemy_time = time.time() + random.randint(2,3)
-            game_speed += 0.25
-        
+            #enemy_time = time.time() + random.randint(2,3)
+            game_speed += 0.10
+
+        #set limit on speed
+        game_speed = 50 if game_speed > 50 else game_speed
         # for p in player_list:
         #     p.move()
         #     p.update()
@@ -369,19 +394,36 @@ def eval_genomes(genomes, config):
         #         highest_score = p.score
         
         for i, p in enumerate(player_list):
-            output = nets[i].activate((p.rect.y, p.nearest_distance, p.nearest_type ,p.nearest_height, game_speed))
+
+            for e in enemy_list:
+                if distance((p.rect.topright), (e.rect.topleft))>0:
+                    p.nearest_distance=distance((p.rect.topright), (e.rect.topleft))
+                    p.nearest_type = e.enemy_type
+                    p.nearest_x_distance = e.rect.midbottom[0] - p.rect.midbottom[0]  if e.rect.midbottom[0]  - p.rect.midbottom[0]  > 0 else 0
+                    #p.nearest_height = e.rect.midbottom[1]
+                    break
+                elif distance((p.rect.topright), (e.rect.topleft))<0:
+                    p.nearest_distance = 0
+                    p.nearest_type = 0
+                    p.nearest_height = 0
+                    p.nearest_x_distance = 0
+
+            output = nets[i].activate((p.rect.y, p.nearest_distance,p.nearest_type,p.nearest_x_distance, game_speed))
             if output[0] > 0.5 and not p.IsJump:
                 p.jump()
-            elif output[1] > 0.5:
+            if output[1] > 0.5:
                 p.duck(True)
             elif output[1] <= 0.5 and p.IsDuck:
                 p.duck(False)
         
-        for p in player_list:
             p.move()
             p.update()
             if p.score > highest_score:
                 highest_score = p.score
+        
+        
+        # for p in player_list:
+            
 
 
         for entity in all_sprites:
@@ -398,7 +440,7 @@ def eval_genomes(genomes, config):
         display.blit(text2, textRect2)
         text3 = font.render("Game speed: " + str(game_speed), True, GREEN,BLUE)
         display.blit(text3, textRect3)
-        text4 = font.render("Generation: " + str(pop.generation + 1), True, GREEN,BLUE)
+        text4 = font.render("Generation: " + str(pop.generation + 1) + "/" + str(number_of_generations), True, GREEN,BLUE)
         display.blit(text4, textRect4)
         pygame.display.update()
         clock.tick(frames_per_second)
@@ -423,7 +465,7 @@ def run(config_path):
     )
 
     pop = neat.Population(config)
-    pop.run(eval_genomes, 100)
+    pop.run(eval_genomes, number_of_generations)
     print("Generations: " + str(pop.generation + 1), " Highest score: " + str(highest_score))
 
 

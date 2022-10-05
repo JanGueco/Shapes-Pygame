@@ -63,7 +63,12 @@ class Player(pygame.sprite.Sprite):
 
 
         self.acc = vec(0,1)
-    
+
+        if self.IsJump and self.pos.y <= window_height * 0.75:
+            self.acc.y = 2
+            self.vel.y = 0
+
+
         pressed_keys = pygame.key.get_pressed()
         if pressed_keys[K_UP]:
             self.jump()
@@ -103,7 +108,8 @@ class Player(pygame.sprite.Sprite):
             
     def jump(self):
         if not self.IsJump:
-            self.vel.y = -15
+            self.acc.y = -10
+            self.vel.y += self.acc.y
             self.IsJump=True
 
     def duck(self):
@@ -237,14 +243,13 @@ nearest = 0
 nearest_distance = 0
 
 
-def eval_genomes(genomes, config):
+def main():
     enemy_time = time.time() + 5
     global enemy_list, nearest, nearest_distance, ge, nets
 
 
 
-    ge = []
-    nets = []
+    
 
     while True:
         global game_speed
@@ -262,6 +267,7 @@ def eval_genomes(genomes, config):
 
         P1.move()
         P1.update()
+        
         
         for e in enemy_list:
             e.move()
@@ -292,12 +298,13 @@ def eval_genomes(genomes, config):
                 all_sprites.add(a)
                 enemies.add(a)
                 enemy_list.append(a)
+                print("Cactus: ", a.rect.y)
             else:
                 a = Bird(window_width-30)
                 all_sprites.add(a)
                 enemies.add(a)
                 enemy_list.append(a)
-            
+                print("Bird: ", a.rect.y)
             enemy_time = time.time() + random.randint(1,3)
             game_speed += 0.5
         
@@ -317,25 +324,25 @@ def eval_genomes(genomes, config):
         clock.tick(frames_per_second)
 
 
+
 main()
 
-
 #Neat Implementation
-def run(config_path):
-    global pop
-    config = neat.config.Config(
-        neat.DefaultGenome,
-        neat.DefaultReproduction,
-        neat.DefaultSpeciesSet,
-        neat.DefaultStagnation,
-        config_path
-    )
+# def run(config_path):
+#     global pop
+#     config = neat.config.Config(
+#         neat.DefaultGenome,
+#         neat.DefaultReproduction,
+#         neat.DefaultSpeciesSet,
+#         neat.DefaultStagnation,
+#         config_path
+#     )
 
-    pop = neat.Population(config)
-    pop.run(eval_genomes, 100)
+#     pop = neat.Population(config)
+#     pop.run(eval_genomes, 100)
 
 
-if __name__ == '__main__':
-    local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, 'config.txt')
-    run(config_path)
+# if __name__ == '__main__':
+#     local_dir = os.path.dirname(__file__)
+#     config_path = os.path.join(local_dir, 'config.txt')
+#     run(config_path)
